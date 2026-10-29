@@ -1,0 +1,31 @@
+const fs = require('node:fs');
+const vm = require('node:vm');
+const assert = require('node:assert/strict');
+const nodes = new Map();
+const node = () => ({value:'',textContent:'',hidden:false,disabled:false,max:2048,dataset:{},classList:{toggle(){}},children:[],events:{},append(...v){this.children.push(...v)},replaceChildren(){this.children=[]},setAttribute(){},addEventListener(k,v){this.events[k]=v},reportValidity(){return true},focus(){},scrollHeight:100,scrollTop:0,clientHeight:100});
+const document = {getElementById(id){if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)},createElement:node,querySelectorAll:()=>[]};
+let fail = false;
+const payload = 'data: {"token":"<script>alert(1)</script>"}\r\n\r\ndata: {"token":" café"}\n\ndata: {"done":true,"prompt_tokens":5,"generated_tokens":2,"seconds":1}\n\n';
+const context = vm.createContext({document,Option:function(text,value){return {text,value}},TextDecoder,AbortController,console,fetch:async(path)=>{
+if(path==='/api/status')return {ok:true,json:async()=>({loaded:true,context:2048,threads:2,batch:128,model:'test.gguf'})};
+if(path==='/api/models')return {ok:true,json:async()=>({models:[]})};
+const bytes = new TextEncoder().encode(fail?'data: {"token":"partial"}\n\n':payload);let index=0;
+return {ok:true,body:{getReader(){return {async read(){return index===bytes.length?{done:true}:{done:false,value:bytes.subarray(index,++index)}},async cancel(){},releaseLock(){}}}}};
+}});
+vm.runInContext(fs.readFileSync('web/app.js','utf8'),context);
+(async()=>{
+await new Promise(setImmediate);
+document.getElementById('max-tokens').value='256';document.getElementById('temperature').value='0.7';document.getElementById('prompt').value='Hi';
+await document.getElementById('composer').events.submit({preventDefault(){}});
+let messages=document.getElementById('messages').children;
+assert.equal(messages[1].children[1].textContent,'<script>alert(1)</script> café');
+assert.match(document.getElementById('generation-status').textContent,/2 reply tokens/);
+assert.equal(vm.runInContext('history.length',context),2);
+fail=true;document.getElementById('prompt').value='Again';
+await document.getElementById('composer').events.submit({preventDefault(){}});
+assert.match(document.getElementById('notice').textContent,/stream ended early/);
+assert.equal(vm.runInContext('history.length',context),2);
+assert.equal(document.getElementById('prompt').value,'Again');
+assert.equal(document.getElementById('stop').hidden,true);
+console.log('PASS: byte-split UTF-8/CRLF SSE, safe text rendering, completed history, interrupted stream retry and cleanup');
+})().catch(e=>{console.error(e);process.exitCode=1});

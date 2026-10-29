@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Pocket Inference · Local chat</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar" aria-label="Model settings">
+    <a class="brand" href="/" aria-label="Pocket Inference home"><span class="mark" aria-hidden="true">p.</span><span>Pocket<span class="brand-sub">INFERENCE</span></span></a>
+    <div class="sidebar-heading"><h2>Your model</h2><button id="refresh" class="text-button" type="button">Refresh</button></div>
+    <label for="model-select">Local GGUF file</label>
+    <select id="model-select"><option value="">Finding models…</option></select>
+    <p id="model-detail" class="hint">Models stay on this device.</p>
+    <button id="load" class="primary" type="button" disabled>Load model</button>
+    <button id="unload" class="secondary" type="button" disabled>Unload & free memory</button>
+    <div class="runtime"><div class="runtime-title"><span id="status-dot" class="status-dot"></span><span id="status-text">Connecting</span></div><dl><div><dt>Context</dt><dd id="context">—</dd></div><div><dt>CPU threads</dt><dd id="threads">—</dd></div><div><dt>Prompt batch</dt><dd id="batch">—</dd></div></dl></div>
+    <details class="settings"><summary>Reply settings</summary><label for="max-tokens">Maximum reply tokens</label><input id="max-tokens" type="number" min="1" max="2048" value="256"><label for="temperature">Temperature <output id="temperature-value">0.7</output></label><input id="temperature" type="range" min="0" max="1.5" step="0.1" value="0.7"></details>
+    <div class="memory-note"><span class="eyebrow">SMALL FOOTPRINT</span><p>One model, one conversation. A shorter context leaves more memory for your device.</p><p>Choose a quantized Q4 GGUF for a smaller model file.</p></div>
+    <footer class="sidebar-footer">Local inference. No cloud account.</footer>
+  </aside>
+  <main class="workspace">
+    <header class="topbar"><div><span class="eyebrow">WORKSPACE</span><h1>Local chat</h1></div><button id="reset" type="button" class="secondary compact">New chat <span aria-hidden="true">＋</span></button></header>
+    <div id="notice" class="notice" role="alert" hidden></div>
+    <section id="conversation" class="conversation" aria-label="Conversation" aria-busy="false">
+      <div id="empty" class="empty"><span class="empty-symbol" aria-hidden="true">↳</span><p class="eyebrow">A LITTLE MODEL. YOUR OWN SPACE.</p><h2>Make room for a thought.</h2><p id="empty-detail">Load a local model to begin. Your messages are processed on this device.</p><div class="suggestions"><button type="button" data-prompt="Explain a complex idea using a simple everyday example.">Explain something simply <span aria-hidden="true">↗</span></button><button type="button" data-prompt="Help me turn a rough idea into a practical plan.">Work through an idea <span aria-hidden="true">↗</span></button></div></div>
+      <div id="messages"></div>
+    </section>
+    <div class="composer-area"><p id="generation-status" class="generation-status" role="status" aria-live="polite">Load a model to start chatting.</p><form id="composer"><label for="prompt" class="sr-only">Message</label><textarea id="prompt" rows="2" maxlength="32768" placeholder="Ask something, think something through…" disabled></textarea><div class="composer-bottom"><span class="keyboard-hint">Enter to send · Shift + Enter for a new line</span><button id="stop" type="button" class="secondary compact" hidden>Stop</button><button id="send" type="submit" class="primary compact" disabled>Send <span aria-hidden="true">↑</span></button></div></form><p class="footnote">Model answers can be inaccurate. Check details that matter.</p></div>
+  </main>
+</body>
+</html>
