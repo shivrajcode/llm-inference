@@ -28,7 +28,7 @@ int main(int argc, char** argv) try {
     for (int i = 1; i < argc; ++i) {
         const std::string option = argv[i];
         if (option == "--help") {
-            std::cout << "Pocket Inference\n  --models DIR --web DIR --port 8080\n  --context 2048 --threads 2 --batch 128 --gpu-layers 0\nLocal UI: http://127.0.0.1:8080\n";
+            std::cout << "Pocket Inference\n  --models DIR --web DIR --port 8080\n  --context 0 (automatic) --threads 2 --batch 128 --gpu-layers 0\nLocal UI: http://127.0.0.1:8080\n";
             return 0;
         }
         if (i + 1 >= argc) throw std::invalid_argument("Missing value for " + option);
@@ -87,7 +87,11 @@ int main(int argc, char** argv) try {
     server.Get("/api/status", [&](const auto&, auto& res) {
         std::unique_lock lock(mutex, std::try_to_lock);
         if (!lock.owns_lock()) { reply(res, {{"error", "Inference is busy"}}, 409); return; }
-        reply(res, {{"loaded",engine.loaded()}, {"model",engine.model_path()}, {"context",config.context}, {"threads",config.threads}, {"batch",config.batch}});
+        const auto effective = engine.config();
+        reply(res, {{"loaded",engine.loaded()}, {"model",engine.model_path()},
+                    {"context",effective.context}, {"model_context",engine.model_context()},
+                    {"auto_context",config.context == 0},
+                    {"threads",effective.threads}, {"batch",effective.batch}});
     });
     server.Get("/api/models", [&](const auto&, auto& res) {
         auto models = json::array();
@@ -106,7 +110,9 @@ int main(int argc, char** argv) try {
         if (!lock.owns_lock()) { reply(res, {{"error","Inference is busy"}},409); return; }
         auto path = model_file(json::parse(req.body).at("path").template get<std::string>());
         engine.load(path.string());
-        reply(res, {{"loaded",true},{"model",path.string()}});
+        reply(res, {{"loaded",true},{"model",path.string()},
+                    {"context",engine.config().context}, {"model_context",engine.model_context()},
+                    {"auto_context",config.context == 0}});
     });
     server.Post("/api/unload", [&](const auto&, auto& res) {
         std::unique_lock lock(mutex, std::try_to_lock);
@@ -123,10 +129,15 @@ int main(int argc, char** argv) try {
         if (!input.is_array() || input.empty() || input.size() > 256) throw std::invalid_argument("Supply 1 to 256 messages");
         for (const auto& message : input)
             messages.push_back({message.at("role").get<std::string>(),message.at("content").get<std::string>()});
-        const auto limit = body.value("max_tokens", json(256));
-        if (!limit.is_number_integer() || limit < 1 || limit > config.context)
-            throw std::invalid_argument("max_tokens must be an integer within the context limit");
-        const int max_tokens = limit.get<int>();
+        // Omitted limits use the model-aware reply budget. Explicit API limits
+        // remain available, but never exceed the loaded context.
+        int max_tokens = 0;
+        if (body.contains("max_tokens")) {
+            const auto& limit = body.at("max_tokens");
+            if (!limit.is_number_integer() || limit < 1 || limit > engine.config().context)
+                throw std::invalid_argument("max_tokens must be an integer within the context limit");
+            max_tokens = limit.get<int>();
+        }
         const auto temp = body.value("temperature", json(0.7));
         if (!temp.is_number() || temp < 0 || temp > 2)
             throw std::invalid_argument("temperature must be between 0 and 2");
@@ -139,7 +150,7 @@ int main(int argc, char** argv) try {
                     if (!sink.is_writable()) return false;
                     return token.empty() ? sink.write(": ping\n\n", 8) : send({{"token",token}});
                 });
-                send({{"done",true},{"prompt_tokens",result.prompt_tokens},{"generated_tokens",result.generated_tokens},{"seconds",result.seconds}});
+                send({{"done",true},{"prompt_tokens",result.prompt_tokens},{"generated_tokens",result.generated_tokens},{"seconds",result.seconds},{"context",result.context},{"history_trimmed",result.history_trimmed}});
             } catch(const std::exception& e) { send({{"error",e.what()}}); }
             sink.done();
             return true;

@@ -9,7 +9,7 @@
 namespace pocket {
 
 struct Config {
-    int context = 2048;
+    int context = 0; // Choose a bounded context from model metadata and available RAM.
     int threads = 2;
     int batch = 128;
     int gpu_layers = 0;
@@ -24,6 +24,8 @@ struct Result {
     int prompt_tokens = 0;
     int generated_tokens = 0;
     double seconds = 0;
+    int history_trimmed = 0; // Number of old messages omitted from this request.
+    int context = 0;
 };
 
 // Calls must be serialized by the owner. Each generation has an independent KV
@@ -41,6 +43,11 @@ public:
     void unload();
     [[nodiscard]] bool loaded() const;
     [[nodiscard]] std::string model_path() const;
+    // Effective allocation while loaded; requested settings while unloaded.
+    [[nodiscard]] Config config() const;
+    [[nodiscard]] int model_context() const;
+    // max_tokens=0 budgets replies automatically and omits oldest completed
+    // turns if needed. Positive limits preserve history and reject overflow.
     Result generate(const std::vector<Message>& messages, int max_tokens,
                     float temperature,
                     const std::function<bool(std::string_view)>& emit);

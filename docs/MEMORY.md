@@ -36,22 +36,58 @@ not full model validation; the inference engine validates loading separately.
   application-owned buffer. Mapped pages still consume physical memory when
   resident. Memory mapping is not a hard memory limit.
 - Leaves memory locking off so the OS can reclaim mapped pages under pressure.
-- Defaults to CPU execution, a 2,048-token context, batches of 128, and two CPU
-  threads. Larger contexts increase the KV cache; larger batches increase
+- Defaults to CPU execution, automatic context sizing, batches of 128, and two
+  CPU threads. Larger contexts increase the KV cache; larger batches increase
   temporary compute memory. Threads are principally a speed/CPU-load setting.
 - Keeps the web interface dependency-free, with no bundled frontend runtime or
   Python inference server. Python is needed only for the download helper/tests.
-- Rejects prompts that cannot fit the configured context plus requested output;
-  start a new chat or shorten the conversation instead of silently dropping text.
+- Automatically reserves reply space and omits the oldest completed conversation
+  turns when necessary. System messages and the latest user message are retained;
+  the completion event reports the number of omitted messages. If those retained
+  messages are too large, the request fails rather than cutting the current prompt.
+  An explicit positive API `max_tokens` uses strict mode: oversized history fails
+  instead of being trimmed.
 
 The KV cache stores intermediate attention keys and values. Its size depends on
 layer count, KV heads, head dimensions, cache precision, and context length; model
 parameter count alone cannot predict it. The process also needs tokenizer data,
 compute buffers, backend allocations, and HTTP request/response buffers.
 
+## Automatic context selection
+
+Context is chosen when a model loads. The engine reads the model's trained
+context limit and samples available host memory, then:
+
+1. Subtracts the model file size and reserves the greater of 512 MiB or one
+   quarter of available memory.
+2. Budgets half the remaining memory for the KV cache, leaving the other half
+   for runtime allocations and estimation error.
+3. Estimates F16 KV bytes per token as
+   `2 * layers * KV_heads * (key_length + value_length)`. If the needed metadata
+   is unavailable, it uses a conservative 256 KiB per token estimate.
+4. Chooses the minimum of the model's trained context, the affordable token count,
+   and an 8,192-token automatic ceiling; rounds down to a multiple of 256; and
+   refuses loading with a clear memory error if fewer than 512 tokens fit.
+
+If host available-memory detection fails, the estimator uses 1 GiB available.
+This fallback can refuse a model that would fit on a machine with more memory;
+an explicit `--context` is available for informed tuning. Automatic sizing does
+not use swap as a reason to grow the context and does not promise OOM prevention.
+Other applications can allocate memory after this snapshot, and backend memory
+requirements vary. An explicit context should remain within the model's trained
+limit and still needs measurement on the target machine.
+
+The browser uses automatic reply length: the smaller of 512 tokens or one quarter
+of the effective context. This reserves output space before old turns are
+removed. If preserved instructions and the latest message still leave less room,
+the reply allowance shrinks to the remaining space; a prompt with no output
+space is rejected. The API's `context` and `history_trimmed` completion fields describe the
+actual request. `GET /api/status` exposes selected context, trained model context,
+and whether context selection was automatic. Temperature defaults to 0.7.
+
 ## Measure before increasing limits
 
-Begin with the default context and CPU mode. If memory pressure or swapping is
+Begin with automatic context and CPU mode. If memory pressure or swapping is
 high, close other applications and reduce context and batch settings. Unload the
 model when finished. GPU offload on integrated graphics can still consume the
 same system RAM and is not inherently a memory saving.
@@ -67,13 +103,14 @@ Exercise a near-context-limit chat as well as a short prompt. Repeat on actual
 4 GB hardware: a successful run on a larger developer machine does not establish
 comfortable operation on a 4 GB laptop.
 
-## Initial measured run
+## Historical measurement with a fixed context
 
 On 2026-10-29, a Release CPU build on an Apple M2 with 16 GiB RAM running
-macOS 27.0.1 passed the real-model runtime checks at the default 2,048-token
+macOS 27.0.1 passed the real-model runtime checks at an explicit 2,048-token
 context, batch 128, and two threads. `/usr/bin/time -l` reported a maximum
 resident set size of **1,437,941,760 bytes (1.34 GiB)**. This is process RSS,
-not system memory usage or a 4 GB device benchmark. The test exercised short
+not system memory usage or a 4 GB device benchmark. It predates automatic context
+selection and does not describe the current default memory footprint. The test exercised short
 16-token replies, independent repeated generations, cancellation before prefill,
 context overflow rejection, and unload/reload. It did not fill the entire context
 or include browser memory. No sustained throughput claim follows from this test.
@@ -83,7 +120,10 @@ observed SHA-256 `b139949c5bd74937ad8ed8c8cf3d9ffb1e99c866c823204dc42c0d91fa1818
 Downloaded from `main`; the digest identifies the tested bytes but was not
 independently authenticated against a publisher checksum.
 
+To measure the current automatic defaults, time the server, load the model in the
+browser, record the selected context, run representative chats, then exit:
+
 ```sh
-/usr/bin/time -l ./build/engine-tests models/Qwen3-1.7B-Q4_K_M.gguf
+/usr/bin/time -l ./build/pocket-inference --models models
 # Linux: replace -l with -v
 ```

@@ -15,6 +15,8 @@ BINARY = Path(os.environ.get("POCKET_TEST_BINARY", str(ROOT / "build/pocket-infe
 
 
 class ServerFixture(unittest.TestCase):
+    launch_options = ["--context", "512", "--batch", "64"]
+
     @classmethod
     def setUpClass(cls):
         cls.temporary = tempfile.TemporaryDirectory()
@@ -28,7 +30,7 @@ class ServerFixture(unittest.TestCase):
         cls.log = (cls.folder / "server.log").open("w+")
         cls.process = subprocess.Popen(
             [str(BINARY), "--models", str(cls.models), "--web", str(ROOT / "web"),
-             "--port", str(cls.port), "--context", "512", "--batch", "64"],
+             "--port", str(cls.port), *cls.launch_options],
             stdout=cls.log, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 15
@@ -85,6 +87,16 @@ class ServerFixture(unittest.TestCase):
     def assert_error(self, status, result):
         self.assertEqual(result[0], status, result[2])
         self.assertIsInstance(json.loads(result[2])["error"], str)
+
+    def completion(self, request_body):
+        status, headers, payload = self.request("POST", "/api/chat", request_body)
+        self.assertEqual(status, 200, payload)
+        self.assertIn("text/event-stream", headers["Content-Type"])
+        events = [json.loads(line[6:]) for line in payload.splitlines() if line.startswith("data: ")]
+        self.assertTrue(events, payload)
+        self.assertFalse(any("error" in event for event in events), events)
+        self.assertTrue(events[-1].get("done"), events)
+        return events[-1]
 
 
 class ServerTests(ServerFixture):
@@ -157,6 +169,10 @@ class RealModelTests(ServerFixture):
     def test_real_generation_validation_and_recovery(self):
         result = self.request("POST", "/api/load", {"path": self.model.name})
         self.assertEqual(result[0], 200, result[2])
+        loaded = json.loads(self.request("GET", "/api/status")[2])
+        self.assertFalse(loaded["auto_context"])
+        self.assertEqual(loaded["context"], 512)
+        self.assertLessEqual(loaded["context"], loaded["model_context"])
         message = {"messages": [{"role": "user", "content": "Say hello briefly."}], "max_tokens": 8}
         for limit in (0, -1, 513, 1.5, 2**64, "8"):
             self.assert_error(400, self.request("POST", "/api/chat", dict(message, max_tokens=limit)))
@@ -212,11 +228,58 @@ class RealModelTests(ServerFixture):
         self.assertTrue(events[-1]["done"])
         self.assertGreater(events[-1]["prompt_tokens"], 0)
         self.assertLessEqual(events[-1]["generated_tokens"], 8)
+        self.assertEqual(events[-1]["context"], 512)
+        self.assertFalse(events[-1]["history_trimmed"])
+
+        # Only messages are required: output length and temperature are automatic.
+        automatic = self.completion({"messages": [
+            {"role": "user", "content": "Reply with just OK. /no_think"}]})
+        self.assertEqual(automatic["context"], 512)
+        self.assertFalse(automatic["history_trimmed"])
+        self.assertLessEqual(automatic["prompt_tokens"] + automatic["generated_tokens"], 512)
+
+        # Old turns must be discarded as complete turns while preserving the
+        # system message and latest user request; the response reports trimming.
+        trimmed = self.completion({"messages": [
+            {"role": "system", "content": "Respond very briefly."},
+            {"role": "user", "content": "old question " * 512},
+            {"role": "assistant", "content": "old answer " * 512},
+            {"role": "user", "content": "Reply with just OK. /no_think"},
+        ]})
+        self.assertEqual(trimmed["history_trimmed"], 2)
+        self.assertEqual(trimmed["context"], 512)
+        self.assertGreater(trimmed["prompt_tokens"], 0)
+        self.assertLessEqual(trimmed["prompt_tokens"] + trimmed["generated_tokens"], 512)
+
+        # Auto mode must still reject an oversized current user message.
+        result = self.request("POST", "/api/chat", {"messages": [
+            {"role": "user", "content": "hello " * 1024}]})
+        self.assertIn('"error"', result[2])
         long_message = {"messages": [{"role": "user", "content": "hello " * 1024}], "max_tokens": 8}
         result = self.request("POST", "/api/chat", long_message)
         self.assertIn('"error"', result[2])
         result = self.request("POST", "/api/chat", message)
         self.assertIn('"done":true', result[2])
+        self.assertEqual(self.request("POST", "/api/unload", {})[0], 200)
+
+
+@unittest.skipUnless(os.environ.get("POCKET_TEST_MODEL"), "Set POCKET_TEST_MODEL to test real inference")
+class AutomaticContextTests(ServerFixture):
+    launch_options = ["--batch", "64"]
+
+    @classmethod
+    def configure_models(cls):
+        cls.model = Path(os.environ["POCKET_TEST_MODEL"]).resolve(strict=True)
+        cls.models = cls.model.parent
+
+    def test_default_context_selected_from_model(self):
+        result = self.request("POST", "/api/load", {"path": self.model.name})
+        self.assertEqual(result[0], 200, result[2])
+        status = json.loads(self.request("GET", "/api/status")[2])
+        self.assertTrue(status["loaded"])
+        self.assertTrue(status["auto_context"])
+        self.assertGreater(status["context"], 0)
+        self.assertLessEqual(status["context"], status["model_context"])
         self.assertEqual(self.request("POST", "/api/unload", {})[0], 200)
 
 
