@@ -37,7 +37,7 @@ function renderStatus() {
   const modelName = (status.model || '').split(/[\\/]/).pop();
   $('status-text').textContent = status.loaded ? modelName || 'Model ready' : 'No model loaded';
   $('status-text').title = status.loaded ? status.model || '' : '';
-  $('cartridge-model').textContent = status.loaded ? modelName : 'YOUR MODEL HERE';
+  $('cartridge-model').textContent = status.loaded ? modelName : 'No model loaded';
   $('status-dot').classList.toggle('ready', status.loaded);
   $('empty-detail').textContent = status.loaded
     ? 'Your model is ready. Give it something to think about.'

@@ -10,51 +10,58 @@
 </head>
 <body>
   <div class="app-shell">
-    <header class="brandbar">
-      <a class="brand" href="/" aria-label="Pocket home">pocket<span class="brand-orbit" aria-hidden="true">✳</span></a>
-      <p class="brand-note">Little footprint.<br>Your whole imagination.</p>
-      <span class="local-badge"><span aria-hidden="true"></span> YOUR DEVICE. YOUR AI.</span>
-    </header>
-    <main class="workspace">
-      <header class="toolbar">
+    <aside class="sidebar" aria-label="Chat and model controls">
+      <a class="brand" href="/" aria-label="Pocket home">
+        <svg class="pocket-mark" viewBox="0 0 42 44" fill="none" aria-hidden="true">
+          <path d="M7 8 35 6l-1 24-13 8L8 31 7 8Z"/>
+          <path d="m11 12 20-1M14 21l7 5 7-6M6 7l2 25 14 8 14-10 1-24"/>
+        </svg>
+        <span>Pocket<span class="brand-dot">.</span></span>
+      </a>
+      <button id="reset" class="button new-chat" type="button">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m14 5 5 5M5 18l1-5L17 2l5 5-11 11-6 1ZM4 5H2v17h17v-3"/></svg>
+        New chat
+        <span class="new-chat-plus" aria-hidden="true">+</span>
+      </button>
+      <section class="session-section" aria-label="Current session">
+        <h2 class="section-label">This session</h2>
+        <div class="current-chat"><span aria-hidden="true">↳</span> Current conversation</div>
+        <p class="session-note">A fresh page for your thoughts.</p>
+      </section>
+      <section class="model-section" aria-label="Local model">
+        <div class="section-heading"><h2 class="section-label">Your model</h2><span class="handwritten">keep it local ↙</span></div>
+        <label for="model-select" class="sr-only">Choose a local model</label>
         <div class="model-picker">
-          <span class="model-icon" aria-hidden="true">▣</span>
-          <label for="model-select" class="sr-only">Choose a local model</label>
           <select id="model-select"><option value="">Finding your models…</option></select>
           <button id="load" class="button primary" type="button" disabled>Load <span aria-hidden="true">↗</span></button>
         </div>
-        <div class="toolbar-actions">
-          <button id="reset" class="button quiet" type="button"><span aria-hidden="true">＋</span> New chat</button>
-          <details class="model-menu">
-            <summary aria-label="Model options" title="Model options">•••</summary>
-            <div class="menu-content">
-              <p id="model-detail">Add a GGUF model to your local library.</p>
-              <button id="refresh" type="button">Refresh model list</button>
-              <button id="unload" type="button" disabled>Unload model</button>
-            </div>
-          </details>
-        </div>
-      </header>
+        <p id="model-detail" class="model-detail">Add a GGUF model to your local library.</p>
+        <div class="model-actions"><button id="refresh" class="text-button" type="button"><span aria-hidden="true">↻</span> Refresh</button><button id="unload" class="text-button" type="button" disabled>Unload model</button></div>
+        <div class="model-note"><span class="section-label">In memory</span><span id="cartridge-model">No model loaded</span></div>
+      </section>
+      <footer class="sidebar-footer">
+        <svg viewBox="0 0 28 25" fill="none" aria-hidden="true"><path d="M5 3h19l-1 15H5V3ZM2 21h24l-3 2H5l-3-2ZM11 7h7M14 7v6"/></svg>
+        <div><strong>At home on your device.</strong><span>No cloud account needed.</span></div>
+      </footer>
+    </aside>
+    <main class="workspace">
+      <svg class="paper-texture" width="100%" height="100%" aria-hidden="true"><defs><pattern id="paper-dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r=".6" fill="#b5a28d" opacity=".16"/></pattern></defs><rect width="100%" height="100%" fill="url(#paper-dots)"/></svg>
+      <header class="workspace-header"><div class="workspace-title">Pocket <span>Local workspace</span></div><span class="private-note"><svg viewBox="0 0 18 20" fill="none" aria-hidden="true"><path d="M4 8V5a5 5 0 0 1 10 0v3M2 8h14v10H2V8ZM9 12v3"/></svg> Only on this device</span></header>
       <div id="notice" class="notice" role="alert" hidden></div>
       <section id="conversation" class="conversation" aria-label="Conversation" aria-busy="false">
         <div id="empty" class="empty">
-          <div class="empty-copy">
-            <p class="eyebrow"><span class="mini-star" aria-hidden="true">✳</span> BIG IDEAS FIT IN YOUR POCKET.</p>
-            <h1>Small model.<br><span>Big thoughts.</span></h1>
-            <p id="empty-detail">Pick a model. Load it up. Make it a conversation.</p>
-            <div class="suggestions">
-              <button type="button" data-prompt="Help me turn a rough idea into a practical plan.">Untangle an idea <span aria-hidden="true">↗</span></button>
-              <button type="button" data-prompt="Explain a complex idea using a simple everyday example.">Make it simple <span aria-hidden="true">↗</span></button>
-            </div>
-          </div>
-          <div class="cartridge-scene" aria-hidden="true">
-            <div class="cartridge">
-              <div class="cartridge-top"><span>pocket</span><span>↗</span></div>
-              <div class="cartridge-label"><span class="cartridge-flower">✳</span><strong>THINK<br>LOCAL.</strong><span id="cartridge-model">YOUR MODEL HERE</span></div>
-              <div class="cartridge-ridges"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-              <span class="cartridge-screw screw-left"></span><span class="cartridge-screw screw-right"></span>
-            </div>
-            <span class="cartridge-caption">Small enough to take with you.</span>
+          <svg class="thought-doodle" viewBox="0 0 126 120" fill="none" aria-hidden="true">
+            <path class="sun-fill" d="m58 30 18 3 15 15 2 18-10 19-19 8-20-6-13-17 2-21 12-13 13-6Z"/>
+            <path d="M63 28c16 1 29 14 29 30 2 19-11 34-30 35-19 1-33-12-34-30-2-17 11-32 29-34M62 5l-1 14M87 10l-7 13M109 30l-14 9M119 59l-17 1M107 89l-13-9M84 110l-8-13M58 116l1-14M31 108l8-14M9 85l15-7M5 55l14 2M18 28l13 10M38 10l7 14"/>
+            <path d="m47 56 2 1m25-1 2 1M49 69c6 8 17 10 25 0"/>
+          </svg>
+          <p class="welcome-note handwritten">a little space to think</p>
+          <h1>What are we <span class="marked">thinking about?</span></h1>
+          <p id="empty-detail">Pick a model. Load it up. Make it a conversation.</p>
+          <div class="suggestions">
+            <button type="button" data-prompt="Help me turn a rough idea into a practical plan."><span class="suggestion-icon" aria-hidden="true">↝</span><span>Untangle an idea</span><span class="suggestion-arrow" aria-hidden="true">↗</span></button>
+            <button type="button" data-prompt="Explain a complex idea using a simple everyday example."><span class="suggestion-icon" aria-hidden="true">✳</span><span>Make it simple</span><span class="suggestion-arrow" aria-hidden="true">↗</span></button>
+            <button type="button" data-prompt="Help me write a first draft. Ask me what I am writing and who it is for."><span class="suggestion-icon" aria-hidden="true">✎</span><span>Start a first draft</span><span class="suggestion-arrow" aria-hidden="true">↗</span></button>
           </div>
         </div>
         <div id="messages"></div>
@@ -63,13 +70,12 @@
         <div class="chat-status"><span id="status-dot" class="status-dot"></span><span id="status-text">Connecting…</span><p id="generation-status" role="status" aria-live="polite"></p></div>
         <form id="composer">
           <label for="prompt" class="sr-only">Your message</label>
-          <textarea id="prompt" rows="2" maxlength="32768" placeholder="What’s on your mind?" disabled></textarea>
-          <div class="composer-bottom"><span class="keyboard-hint">Just you and your model.</span><button id="stop" type="button" class="button stop" hidden><span aria-hidden="true">■</span> Stop</button><button id="send" type="submit" class="button primary send" disabled>Send <span aria-hidden="true">↑</span></button></div>
+          <textarea id="prompt" rows="2" maxlength="32768" placeholder="Put a thought on the page…" disabled></textarea>
+          <div class="composer-bottom"><span class="keyboard-hint handwritten">no thought too small.</span><button id="stop" type="button" class="button stop" hidden><span aria-hidden="true">■</span> Stop</button><button id="send" type="submit" class="button primary send" aria-label="Send message" title="Send message" disabled><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 11 7-8 7 8M12 4l-1 17"/></svg></button></div>
         </form>
-        <p class="footnote">Runs locally. Think freely. Double-check the important stuff.</p>
+        <p class="footnote">Made to run locally. Always double-check the important stuff.</p>
       </div>
     </main>
-    <footer class="page-footer"><span>POCKET INFERENCE</span><span>No cloud required. <span aria-hidden="true">↗</span></span></footer>
   </div>
 </body>
 </html>
