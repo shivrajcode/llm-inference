@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
         rejects([] { pocket::Engine engine({.threads = 0}); }, "zero threads accepted");
         rejects([] { pocket::Engine engine({.batch = -1}); }, "negative batch accepted");
         rejects([] { pocket::Engine engine({.gpu_layers = -1}); }, "negative GPU layers accepted");
-        pocket::Engine engine({.context = 256, .threads = 1, .batch = 32});
+        pocket::Engine engine;
         require(!engine.loaded(), "engine unexpectedly loaded");
         rejects([&] { engine.generate({{"user", "Hello"}}, 8, 0, [](auto) { return true; }); },
                 "unloaded generation accepted");
@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
             require(first == second, "greedy generation changed between independent sessions");
             result = engine.generate(messages, 16, 0, [](auto) { return false; });
             require(result.generated_tokens == 0, "prefill cancellation failed");
-            rejects([&] { engine.generate({{"user", std::string(10000, 'a')}}, 16, 0,
+            rejects([&] { engine.generate({{"user", std::string(100000, 'a')}}, 16, 0,
                                           [](auto) { return true; }); }, "oversized context accepted");
             rejects([&] { engine.generate({{"tool", "bad role"}}, 16, 0,
                                           [](auto) { return true; }); }, "unsupported role accepted");
