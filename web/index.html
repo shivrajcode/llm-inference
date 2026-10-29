@@ -4,32 +4,72 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
-  <title>Pocket Inference · Local chat</title>
+  <title>Pocket · Your local AI</title>
   <link rel="stylesheet" href="/app.css">
   <script src="/app.js" defer></script>
 </head>
 <body>
-  <aside class="sidebar" aria-label="Model settings">
-    <a class="brand" href="/" aria-label="Pocket Inference home"><span class="mark" aria-hidden="true">p.</span><span>Pocket<span class="brand-sub">INFERENCE</span></span></a>
-    <div class="sidebar-heading"><h2>Your model</h2><button id="refresh" class="text-button" type="button">Refresh</button></div>
-    <label for="model-select">Local GGUF file</label>
-    <select id="model-select"><option value="">Finding models…</option></select>
-    <p id="model-detail" class="hint">Models stay on this device.</p>
-    <button id="load" class="primary" type="button" disabled>Load model</button>
-    <button id="unload" class="secondary" type="button" disabled>Unload & free memory</button>
-    <div class="runtime"><div class="runtime-title"><span id="status-dot" class="status-dot"></span><span id="status-text">Connecting</span></div><dl><div><dt>Context</dt><dd id="context">—</dd></div><div><dt>CPU threads</dt><dd id="threads">—</dd></div><div><dt>Prompt batch</dt><dd id="batch">—</dd></div></dl></div>
-    <details class="settings"><summary>Reply settings</summary><label for="max-tokens">Maximum reply tokens</label><input id="max-tokens" type="number" min="1" max="2048" value="256"><label for="temperature">Temperature <output id="temperature-value">0.7</output></label><input id="temperature" type="range" min="0" max="1.5" step="0.1" value="0.7"></details>
-    <div class="memory-note"><span class="eyebrow">SMALL FOOTPRINT</span><p>One model, one conversation. A shorter context leaves more memory for your device.</p><p>Choose a quantized Q4 GGUF for a smaller model file.</p></div>
-    <footer class="sidebar-footer">Local inference. No cloud account.</footer>
-  </aside>
-  <main class="workspace">
-    <header class="topbar"><div><span class="eyebrow">WORKSPACE</span><h1>Local chat</h1></div><button id="reset" type="button" class="secondary compact">New chat <span aria-hidden="true">＋</span></button></header>
-    <div id="notice" class="notice" role="alert" hidden></div>
-    <section id="conversation" class="conversation" aria-label="Conversation" aria-busy="false">
-      <div id="empty" class="empty"><span class="empty-symbol" aria-hidden="true">↳</span><p class="eyebrow">A LITTLE MODEL. YOUR OWN SPACE.</p><h2>Make room for a thought.</h2><p id="empty-detail">Load a local model to begin. Your messages are processed on this device.</p><div class="suggestions"><button type="button" data-prompt="Explain a complex idea using a simple everyday example.">Explain something simply <span aria-hidden="true">↗</span></button><button type="button" data-prompt="Help me turn a rough idea into a practical plan.">Work through an idea <span aria-hidden="true">↗</span></button></div></div>
-      <div id="messages"></div>
-    </section>
-    <div class="composer-area"><p id="generation-status" class="generation-status" role="status" aria-live="polite">Load a model to start chatting.</p><form id="composer"><label for="prompt" class="sr-only">Message</label><textarea id="prompt" rows="2" maxlength="32768" placeholder="Ask something, think something through…" disabled></textarea><div class="composer-bottom"><span class="keyboard-hint">Enter to send · Shift + Enter for a new line</span><button id="stop" type="button" class="secondary compact" hidden>Stop</button><button id="send" type="submit" class="primary compact" disabled>Send <span aria-hidden="true">↑</span></button></div></form><p class="footnote">Model answers can be inaccurate. Check details that matter.</p></div>
-  </main>
+  <div class="app-shell">
+    <header class="brandbar">
+      <a class="brand" href="/" aria-label="Pocket home">pocket<span class="brand-orbit" aria-hidden="true">✳</span></a>
+      <p class="brand-note">Little footprint.<br>Your whole imagination.</p>
+      <span class="local-badge"><span aria-hidden="true"></span> YOUR DEVICE. YOUR AI.</span>
+    </header>
+    <main class="workspace">
+      <header class="toolbar">
+        <div class="model-picker">
+          <span class="model-icon" aria-hidden="true">▣</span>
+          <label for="model-select" class="sr-only">Choose a local model</label>
+          <select id="model-select"><option value="">Finding your models…</option></select>
+          <button id="load" class="button primary" type="button" disabled>Load <span aria-hidden="true">↗</span></button>
+        </div>
+        <div class="toolbar-actions">
+          <button id="reset" class="button quiet" type="button"><span aria-hidden="true">＋</span> New chat</button>
+          <details class="model-menu">
+            <summary aria-label="Model options" title="Model options">•••</summary>
+            <div class="menu-content">
+              <p id="model-detail">Add a GGUF model to your local library.</p>
+              <button id="refresh" type="button">Refresh model list</button>
+              <button id="unload" type="button" disabled>Unload model</button>
+            </div>
+          </details>
+        </div>
+      </header>
+      <div id="notice" class="notice" role="alert" hidden></div>
+      <section id="conversation" class="conversation" aria-label="Conversation" aria-busy="false">
+        <div id="empty" class="empty">
+          <div class="empty-copy">
+            <p class="eyebrow"><span class="mini-star" aria-hidden="true">✳</span> BIG IDEAS FIT IN YOUR POCKET.</p>
+            <h1>Small model.<br><span>Big thoughts.</span></h1>
+            <p id="empty-detail">Pick a model. Load it up. Make it a conversation.</p>
+            <div class="suggestions">
+              <button type="button" data-prompt="Help me turn a rough idea into a practical plan.">Untangle an idea <span aria-hidden="true">↗</span></button>
+              <button type="button" data-prompt="Explain a complex idea using a simple everyday example.">Make it simple <span aria-hidden="true">↗</span></button>
+            </div>
+          </div>
+          <div class="cartridge-scene" aria-hidden="true">
+            <div class="cartridge">
+              <div class="cartridge-top"><span>pocket</span><span>↗</span></div>
+              <div class="cartridge-label"><span class="cartridge-flower">✳</span><strong>THINK<br>LOCAL.</strong><span id="cartridge-model">YOUR MODEL HERE</span></div>
+              <div class="cartridge-ridges"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              <span class="cartridge-screw screw-left"></span><span class="cartridge-screw screw-right"></span>
+            </div>
+            <span class="cartridge-caption">Small enough to take with you.</span>
+          </div>
+        </div>
+        <div id="messages"></div>
+      </section>
+      <div class="composer-area">
+        <div class="chat-status"><span id="status-dot" class="status-dot"></span><span id="status-text">Connecting…</span><p id="generation-status" role="status" aria-live="polite"></p></div>
+        <form id="composer">
+          <label for="prompt" class="sr-only">Your message</label>
+          <textarea id="prompt" rows="2" maxlength="32768" placeholder="What’s on your mind?" disabled></textarea>
+          <div class="composer-bottom"><span class="keyboard-hint">Just you and your model.</span><button id="stop" type="button" class="button stop" hidden><span aria-hidden="true">■</span> Stop</button><button id="send" type="submit" class="button primary send" disabled>Send <span aria-hidden="true">↑</span></button></div>
+        </form>
+        <p class="footnote">Runs locally. Think freely. Double-check the important stuff.</p>
+      </div>
+    </main>
+    <footer class="page-footer"><span>POCKET INFERENCE</span><span>No cloud required. <span aria-hidden="true">↗</span></span></footer>
+  </div>
 </body>
 </html>

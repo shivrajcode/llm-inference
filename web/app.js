@@ -20,8 +20,6 @@ function controls() {
   $('prompt').disabled = busy || !status.loaded;
   $('send').disabled = busy || !status.loaded || !$('prompt').value.trim();
   $('stop').hidden = !controller;
-  $('max-tokens').disabled = busy;
-  $('temperature').disabled = busy;
   $('conversation').setAttribute('aria-busy', String(busy));
 }
 
@@ -36,28 +34,30 @@ async function api(path, body) {
 }
 
 function renderStatus() {
-  $('status-text').textContent = status.loaded ? 'Model ready' : 'No model loaded';
+  const modelName = (status.model || '').split(/[\\/]/).pop();
+  $('status-text').textContent = status.loaded ? modelName || 'Model ready' : 'No model loaded';
+  $('status-text').title = status.loaded ? status.model || '' : '';
+  $('cartridge-model').textContent = status.loaded ? modelName : 'YOUR MODEL HERE';
   $('status-dot').classList.toggle('ready', status.loaded);
-  $('context').textContent = status.context ?? '—';
-  $('threads').textContent = status.threads ?? '—';
-  $('batch').textContent = status.batch ?? '—';
   $('empty-detail').textContent = status.loaded
-    ? 'Your model is ready. Start a conversation below; messages stay on this device.'
-    : 'Load a local model to begin. Your messages are processed on this device.';
-  $('generation-status').textContent = status.loaded ? `Ready · ${status.model || 'Local model'}` : 'Load a model to start chatting.';
-  if (Number.isInteger(status.context)) $('max-tokens').max = Math.max(1, Math.min(2048, status.context - 1));
+    ? 'Your model is ready. Give it something to think about.'
+    : 'Pick a model. Load it up. Make it a conversation.';
+  $('generation-status').textContent = '';
   controls();
 }
 
 function modelDetail() {
   const model = models.find((item) => item.path === $('model-select').value);
   $('model-detail').textContent = model
-    ? `${(model.size_bytes / 1024 ** 3).toFixed(2)} GiB on disk · Runtime memory is additional.`
+    ? model.name
     : 'Add a .gguf file to the server’s models folder, then refresh.';
   controls();
 }
 
 async function refresh() {
+  if (busy) return;
+  busy = true;
+  controls();
   notice();
   try {
     const [nextStatus, result] = await Promise.all([api('/api/status'), api('/api/models')]);
@@ -75,7 +75,7 @@ async function refresh() {
     renderStatus();
     $('status-text').textContent = 'Server unavailable';
     notice(`${error.message} Check that the local server is running, then refresh.`);
-  }
+  } finally { busy = false; controls(); }
 }
 
 function reset() {
@@ -87,6 +87,7 @@ function reset() {
 }
 
 async function changeModel(unload) {
+  if (busy) return;
   busy = true;
   controls();
   notice();
@@ -126,12 +127,14 @@ function scrollIfNearBottom(force = false) {
 async function send(event) {
   event.preventDefault();
   const prompt = $('prompt').value.trim();
-  if (!prompt || busy || !status.loaded || !$('max-tokens').reportValidity()) return;
+  if (!prompt || busy || !status.loaded) return;
   busy = true;
   controller = new AbortController();
   controls();
   notice();
-  const nextHistory = [...history, { role: 'user', content: prompt }];
+  // Keep requests inside the API's message-count bound, dropping complete old turns.
+  const historyCapped = history.length > 254;
+  const nextHistory = [...history.slice(-254), { role: 'user', content: prompt }];
   message('user', prompt);
   const answer = message('assistant', '');
   $('prompt').value = '';
@@ -139,11 +142,12 @@ async function send(event) {
   scrollIfNearBottom(true);
   let fullText = '';
   let complete = false;
+  let trimmedMessages = 0;
   let reader;
   try {
     const response = await fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: nextHistory, max_tokens: Number($('max-tokens').value), temperature: Number($('temperature').value) }),
+      body: JSON.stringify({ messages: nextHistory }),
       signal: controller.signal
     });
     if (!response.ok) {
@@ -167,9 +171,9 @@ async function send(event) {
       }
       if (item.done) {
         complete = true;
-        const seconds = Number(item.seconds);
-        const speed = seconds > 0 ? ` · ${(Number(item.generated_tokens) / seconds).toFixed(1)} tokens/s overall` : '';
-        $('generation-status').textContent = `${item.prompt_tokens} prompt tokens · ${item.generated_tokens} reply tokens${speed}`;
+        trimmedMessages = Number.isInteger(item.history_trimmed) ? Math.max(0, item.history_trimmed) : 0;
+        $('generation-status').textContent = trimmedMessages > 0 || historyCapped
+          ? 'Earlier messages are outside the model’s memory.' : '';
       }
     }
     while (true) {
@@ -185,7 +189,13 @@ async function send(event) {
       if (done) { if (buffer.trim()) consume(buffer); break; }
     }
     if (!complete) throw new Error('The stream ended early. Try sending the message again.');
-    history = [...nextHistory, { role: 'assistant', content: fullText }];
+    // The visible transcript stays intact; only the next model request is shortened.
+    const retainedHistory = nextHistory.filter((entry) => {
+      if (entry.role === 'system' || trimmedMessages === 0) return true;
+      trimmedMessages--;
+      return false;
+    });
+    history = [...retainedHistory, { role: 'assistant', content: fullText }];
     if (!fullText) answer.textContent = '(The model returned an empty reply.)';
   } catch (error) {
     if (error.name === 'AbortError') {
@@ -218,7 +228,6 @@ $('prompt').addEventListener('input', controls);
 $('prompt').addEventListener('keydown', (event) => {
   if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); $('composer').requestSubmit(); }
 });
-$('temperature').addEventListener('input', () => { $('temperature-value').textContent = $('temperature').value; });
 document.querySelectorAll('[data-prompt]').forEach((button) => button.addEventListener('click', () => {
   if (busy) return;
   $('prompt').value = button.dataset.prompt;
